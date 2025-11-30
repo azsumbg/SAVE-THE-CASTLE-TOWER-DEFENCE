@@ -12,7 +12,7 @@
 
 #pragma comment(lib, "winmm.lib")
 #pragma comment(lib, "d2d1.lib")
-#pragma comment(lib, "d2write.lib")
+#pragma comment(lib, "dwrite.lib")
 #pragma comment(lib, "d2bmploader.lib")
 #pragma comment(lib, "gifresizer.lib")
 #pragma comment(lib, "errh.lib")
@@ -57,9 +57,9 @@ D2D1_RECT_F b1Rect{ 10.0f, 0, scr_width / 3.0f, 50.0f };
 D2D1_RECT_F b2Rect{ scr_width / 3.0f + 10.0f, 0, scr_width * 2.0f / 3.0f, 50.0f };
 D2D1_RECT_F b3Rect{ scr_width * 2.0f / 3.0f + 10.0f, 0, scr_width - 10.0f, 50.0f };
 
-D2D1_RECT_F b1TxtRect{ 30.0f, 5.0f, scr_width / 3.0f, 50.0f };
-D2D1_RECT_F b2TxtRect{ scr_width / 3.0f + 30.0f, 5.0f, scr_width * 2.0f / 3.0f, 50.0f };
-D2D1_RECT_F b3TxtRect{ scr_width * 2.0f / 3.0f + 30.0f, 5.0f, scr_width - 10.0f, 50.0f };
+D2D1_RECT_F b1TxtRect{ 80.0f, 10.0f, scr_width / 3.0f, 50.0f };
+D2D1_RECT_F b2TxtRect{ scr_width / 3.0f + 60.0f, 10.0f, scr_width * 2.0f / 3.0f, 50.0f };
+D2D1_RECT_F b3TxtRect{ scr_width * 2.0f / 3.0f + 60.0f, 10.0f, scr_width - 10.0f, 50.0f };
 
 float scale_x{ 0 };
 float scale_y{ 0 };
@@ -556,6 +556,14 @@ void CreateResources()
 
 		if (Draw)
 		{
+			RECT scr_rect{};
+			GetClientRect(bHwnd, &scr_rect);
+			
+			D2D1_SIZE_F hwnd_rect = Draw->GetSize();
+
+			scale_x = hwnd_rect.width / scr_rect.right;
+			scale_y = hwnd_rect.height / scr_rect.bottom;
+
 			D2D1_GRADIENT_STOP gStops[2]{};
 			ID2D1GradientStopCollection* gColl{ nullptr };
 
@@ -1097,7 +1105,7 @@ void CreateResources()
 		{
 			Draw->BeginDraw();
 			Draw->DrawBitmap(bmpIntro[IntroFrame()], D2D1::RectF(0, 0, scr_width, scr_height));
-			Draw->DrawBitmap(bmpLogo, D2D1::RectF(100.0f, 200.0f, scr_width, scr_height));
+			Draw->DrawBitmap(bmpLogo, D2D1::RectF(50.0f, 100.0f, scr_width, scr_height));
 			Draw->EndDraw();
 		}
 		Sleep(3000);
@@ -1118,16 +1126,76 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 	CreateResources();
 
+	while (bMsg.message != WM_QUIT)
+	{
+		if ((bRet = PeekMessage(&bMsg, bHwnd, NULL, NULL, PM_REMOVE)) != 0)
+		{
+			if (bRet == -1)ErrExit(eMsg);
+
+			TranslateMessage(&bMsg);
+			DispatchMessage(&bMsg);
+		}
+
+		if (pause)
+		{
+			if (show_help)continue;
+
+			if (StatBrush && bigFormat)
+			{
+				Draw->BeginDraw();
+				Draw->DrawBitmap(bmpIntro[IntroFrame()], D2D1::RectF(0, 0, scr_width, scr_height));
+				Draw->DrawText(L"ПАУЗА", 6, bigFormat, D2D1::RectF(scr_width / 2.0f - 100.0f, scr_height / 2.0f - 50.0f, scr_width, scr_height), StatBrush);
+				Draw->EndDraw();
+				continue;
+			}
+		}
+
+		/////////////////////////////////////////////////
 
 
+		////////////////////////////////////////////////
 
+		// DRAW THINGS *********************************
 
+		Draw->BeginDraw();
 
+		if (TxtBrush && HgltBrush && InactBrush && nrmFormat && b1Bckg && b2Bckg && b3Bckg && StatBrush)
+		{
+			Draw->FillRectangle(D2D1::RectF(0, 0, scr_width, 50.0f), StatBrush);
+			Draw->FillRoundedRectangle(D2D1::RoundedRect(b1Rect, 20.0f, 25.0f), b1Bckg);
+			Draw->FillRoundedRectangle(D2D1::RoundedRect(b2Rect, 20.0f, 25.0f), b2Bckg);
+			Draw->FillRoundedRectangle(D2D1::RoundedRect(b3Rect, 20.0f, 25.0f), b3Bckg);
 
+			if (name_set)Draw->DrawText(L"ИМЕ НА КРАЛ", 12, nrmFormat, b1TxtRect, InactBrush);
+			else
+			{
+				if(b1Hglt)Draw->DrawText(L"ИМЕ НА КРАЛ", 12, nrmFormat, b1TxtRect, HgltBrush);
+				else Draw->DrawText(L"ИМЕ НА КРАЛ", 12, nrmFormat, b1TxtRect, TxtBrush);
+			}
+			if (b2Hglt)Draw->DrawText(L"ЗВУЦИ ON / OFF", 15, nrmFormat, b2TxtRect, HgltBrush);
+			else Draw->DrawText(L"ЗВУЦИ ON / OFF", 15, nrmFormat, b2TxtRect, TxtBrush);
+			if (b3Hglt)Draw->DrawText(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, HgltBrush);
+			else Draw->DrawText(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, TxtBrush);
 
+			Draw->DrawBitmap(bmpField, D2D1::RectF(0, 50.0f, scr_width, scr_height));
+		}
 
-
-
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		////////////////////////////////////////////////
+		
+		Draw->EndDraw();
+	}
 
 	std::remove(tmp_file);
 	ClearResources();
