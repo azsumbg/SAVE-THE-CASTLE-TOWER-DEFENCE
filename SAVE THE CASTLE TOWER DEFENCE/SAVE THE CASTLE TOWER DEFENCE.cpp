@@ -1067,17 +1067,41 @@ void CreateResources()
 			}
 		}
 
+		hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&iWriteFactory));
+		if (hr != S_OK)
+		{
+			LogErr(L"Error creating iWriteFactory !");
+			ErrExit(eD2D);
+		}
 
-
+		if (iWriteFactory)
+		{
+			hr = iWriteFactory->CreateTextFormat(L"GNABRI", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
+				DWRITE_FONT_STRETCH_NORMAL, 18.0f, L"", &nrmFormat);
+			hr = iWriteFactory->CreateTextFormat(L"GNABRI", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
+				DWRITE_FONT_STRETCH_NORMAL, 32.0f, L"", &midFormat);
+			hr = iWriteFactory->CreateTextFormat(L"GNABRI", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
+				DWRITE_FONT_STRETCH_NORMAL, 72.0f, L"", &bigFormat);
+			if (hr != S_OK)
+			{
+				LogErr(L"Error creating iWriteFactory Text Formats!");
+				ErrExit(eD2D);
+			}
+		}
 	}
 
-
-
-
-
-
-
-
+	if (Draw)
+	{
+		PlaySound(L".\\res\\snd\\intro.wav", NULL, SND_ASYNC);
+		for (int i = 0; i < 100; ++i)
+		{
+			Draw->BeginDraw();
+			Draw->DrawBitmap(bmpIntro[IntroFrame()], D2D1::RectF(0, 0, scr_width, scr_height));
+			Draw->DrawBitmap(bmpLogo, D2D1::RectF(100.0f, 200.0f, scr_width, scr_height));
+			Draw->EndDraw();
+		}
+		Sleep(3000);
+	}
 
 }
 
