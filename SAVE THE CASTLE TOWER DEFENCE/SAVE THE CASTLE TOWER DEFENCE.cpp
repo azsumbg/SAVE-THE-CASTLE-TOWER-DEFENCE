@@ -895,8 +895,176 @@ void CreateResources()
 				}
 			}
 
+			for (int i = 0; i < 10; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\orcs\\2\\l\\" };
+				wchar_t add[5]{ L"\0" };
 
+				wsprintf(add, L"%d", i);
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
 
+				bmpOrc2L[i] = Load(name, Draw);
+				if (!bmpOrc2L[i])
+				{
+					LogErr(L"Error creating bmpOrc2L !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 10; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\orcs\\2\\r\\" };
+				wchar_t add[5]{ L"\0" };
+
+				wsprintf(add, L"%d", i);
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpOrc2R[i] = Load(name, Draw);
+				if (!bmpOrc2R[i])
+				{
+					LogErr(L"Error creating bmpOrc2R !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 46; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\orcs\\3\\l\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+				wsprintf(add, L"%d", i);
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpHealerL[i] = Load(name, Draw);
+				if (!bmpHealerL[i])
+				{
+					LogErr(L"Error creating bmpHealerL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 46; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\orcs\\3\\r\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+				wsprintf(add, L"%d", i);
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpHealerR[i] = Load(name, Draw);
+				if (!bmpHealerR[i])
+				{
+					LogErr(L"Error creating bmpHealerR !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 40; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\orcs\\4\\l\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+				wsprintf(add, L"%d", i);
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpCrusherL[i] = Load(name, Draw);
+				if (!bmpCrusherL[i])
+				{
+					LogErr(L"Error creating bmpCrusherL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 40; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\orcs\\4\\r\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+				wsprintf(add, L"%d", i);
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpCrusherR[i] = Load(name, Draw);
+				if (!bmpCrusherR[i])
+				{
+					LogErr(L"Error creating bmpCrusherR !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 34; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\orcs\\5\\l\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+				wsprintf(add, L"%d", i);
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpFlyerL[i] = Load(name, Draw);
+				if (!bmpFlyerL[i])
+				{
+					LogErr(L"Error creating bmpFlyerL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 34; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\orcs\\5\\r\\0" };
+				wchar_t add[5]{ L"\0" };
+
+				if (i < 10)wcscat_s(name, L"0");
+				wsprintf(add, L"%d", i);
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpFlyerR[i] = Load(name, Draw);
+				if (!bmpFlyerR[i])
+				{
+					LogErr(L"Error creating bmpFlyerR !");
+					ErrExit(eD2D);
+				}
+			}
+
+			for (int i = 0; i < 10; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\orcs\\Champion\\l\\" };
+				wchar_t add[5]{ L"\0" };
+
+				wsprintf(add, L"%d", i);
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpChampionL[i] = Load(name, Draw);
+				if (!bmpChampionL[i])
+				{
+					LogErr(L"Error creating bmpChampionL !");
+					ErrExit(eD2D);
+				}
+			}
+			for (int i = 0; i < 10; ++i)
+			{
+				wchar_t name[100]{ L".\\res\\img\\orcs\\Champion\\r\\" };
+				wchar_t add[5]{ L"\0" };
+
+				wsprintf(add, L"%d", i);
+				wcscat_s(name, add);
+				wcscat_s(name, L".png");
+
+				bmpChampionR[i] = Load(name, Draw);
+				if (!bmpChampionR[i])
+				{
+					LogErr(L"Error creating bmpChampionR !");
+					ErrExit(eD2D);
+				}
+			}
 		}
 
 
