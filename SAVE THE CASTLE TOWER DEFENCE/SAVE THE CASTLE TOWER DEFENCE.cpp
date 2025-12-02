@@ -80,6 +80,8 @@ int secs{ 0 };
 int level{ 0 };
 int score{ 0 };
 
+dll::RANDIT RandIt{};
+
 ID2D1Factory* iFactory{ nullptr };
 ID2D1HwndRenderTarget* Draw{ nullptr };
 
@@ -146,7 +148,8 @@ ID2D1Bitmap* bmpChampionR[10]{ nullptr };
 
 ///////////////////////////////////////////////////////
 
-
+std::vector<dll::ASSETS*> vAssets;
+std::vector<dll::BUILDINGS*> vBuildings;
 
 
 
@@ -286,6 +289,53 @@ void InitGame()
 	wcscpy_s(current_player, L"A KING");
 	name_set = false;
 
+	if (!vAssets.empty())
+	{
+		for (int i = 0; i < vAssets.size(); ++i)
+		{
+			FreeHeap(&vAssets[i]);
+			vAssets[i] = nullptr;
+		}
+	}
+	
+	if (!vBuildings.empty())
+	{
+		for (int i = 0; i < vBuildings.size(); ++i)
+		{
+			FreeHeap(&vBuildings[i]);
+			vBuildings[i] = nullptr;
+		}
+	}
+
+
+	for (int i = 0; i < 15 + level; ++i)
+	{
+		bool is_ok{ false };
+
+		while (!is_ok)
+		{
+			is_ok = true;
+
+			dll::ASSETS* dummy = dll::AssetFactory(static_cast<assets>(RandIt(0, 3)),
+				static_cast<float>(RandIt(100, 900)), static_cast<float>(RandIt(60, 700)));
+			if (!vAssets.empty())
+			{
+				for (int k = 0; k < vAssets.size(); ++k)
+				{
+					FRECT dummy_rect{ dummy->start.x,dummy->end.x,dummy->start.y,dummy->end.y };
+					FRECT existing_rect{ vAssets[k]->start.x,vAssets[k]->end.x, vAssets[k]->start.y,vAssets[k]->end.y };
+
+					if (dll::Intersect(dummy_rect, existing_rect))
+					{
+						is_ok = false;
+						break;
+					}
+				}
+			}
+
+			if (is_ok)vAssets.push_back(dummy);
+		}
+	}
 
 
 }
@@ -1180,7 +1230,34 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			Draw->DrawBitmap(bmpField, D2D1::RectF(0, 50.0f, scr_width, scr_height));
 		}
 
-		
+		if (!vAssets.empty())
+		{
+			for (int i = 0; i < vAssets.size(); ++i)
+			{
+				switch (vAssets[i]->get_type())
+				{
+				case assets::rock:
+					Draw->DrawBitmap(bmpRock, D2D1::RectF(vAssets[i]->start.x, vAssets[i]->start.y,
+						vAssets[i]->end.x, vAssets[i]->end.y));
+					break;
+
+				case assets::small_tree:
+					Draw->DrawBitmap(bmpSmallTree, D2D1::RectF(vAssets[i]->start.x, vAssets[i]->start.y,
+						vAssets[i]->end.x, vAssets[i]->end.y));
+					break;
+
+				case assets::mid_tree:
+					Draw->DrawBitmap(bmpMidTree, D2D1::RectF(vAssets[i]->start.x, vAssets[i]->start.y,
+						vAssets[i]->end.x, vAssets[i]->end.y));
+					break;
+
+				case assets::big_tree:
+					Draw->DrawBitmap(bmpBigTree, D2D1::RectF(vAssets[i]->start.x, vAssets[i]->start.y,
+						vAssets[i]->end.x, vAssets[i]->end.y));
+					break;
+				}
+			}
+		}
 		
 		
 		
