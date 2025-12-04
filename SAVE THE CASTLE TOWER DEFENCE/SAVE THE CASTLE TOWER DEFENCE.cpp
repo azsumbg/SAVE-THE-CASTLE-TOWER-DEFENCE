@@ -151,6 +151,8 @@ ID2D1Bitmap* bmpChampionR[10]{ nullptr };
 std::vector<dll::ASSETS*> vAssets;
 std::vector<dll::BUILDINGS*> vBuildings;
 
+std::vector<dll::ORCS*> vOrcs;
+
 
 
 
@@ -307,7 +309,6 @@ void InitGame()
 		}
 	}
 
-
 	for (int i = 0; i < 15 + level; ++i)
 	{
 		bool is_ok{ false };
@@ -337,6 +338,45 @@ void InitGame()
 		}
 	}
 
+	bool castle_ok = false;
+	while(!castle_ok)
+	{
+		castle_ok = true;
+		dll::BUILDINGS* dummy{ nullptr };
+
+		if (!vAssets.empty())
+		{
+			for (int i = 0; i < vAssets.size(); ++i)
+			{
+				dummy = dll::BuildingFactory(buildings::castle, static_cast<float>(RandIt(0,800)),
+					static_cast<float>(RandIt(50,700)));
+
+				FRECT dummy_rect{ dummy->start.x,dummy->end.x,dummy->start.y,dummy->end.y };
+				FRECT asset_rect{ vAssets[i]->start.x,vAssets[i]->end.x,vAssets[i]->start.y,vAssets[i]->end.y };
+
+				if (dll::Intersect(dummy_rect, asset_rect))
+				{
+					castle_ok = false;
+					break;
+				}
+			}
+		}
+
+		if (castle_ok && dummy)
+		{
+		
+			vBuildings.push_back(dummy);
+		}
+	}
+
+	if (!vOrcs.empty())
+	{
+		for (int i = 0; i < vOrcs.size(); ++i)
+		{
+			FreeHeap(&vOrcs[i]);
+			vOrcs[i] = nullptr;
+		}
+	}
 
 }
 
@@ -1202,6 +1242,44 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 		/////////////////////////////////////////////////
 
+		if (vOrcs.size() < 10 + level && RandIt(0, 5) == 3)
+		{
+			float orc_sx{ 0 };
+			float orc_sy{ 0 };
+
+			if (!vBuildings.empty())
+			{
+				if (vBuildings[0]->start.x > scr_width / 2.0f)orc_sx = -100.0f;
+				else orc_sx = scr_width;
+
+				if (vBuildings[0]->start.y > scr_height / 2.0f)orc_sy = 0;
+				else orc_sy = ground;
+			}
+
+			vOrcs.push_back(dll::OrcFactory(static_cast<orcs>(RandIt(0, 4)), orc_sx, orc_sy));
+		}
+
+		if (!vOrcs.empty() && !vBuildings.empty() && !vAssets.empty())
+		{
+			dll::BAG<dll::ORCS> OrcPack(vOrcs.size());
+			dll::BAG<FPOINT> BuildingPack(vBuildings.size());
+			dll::BAG<dll::ASSETS> AssetPack(vAssets.size());
+			
+			for (size_t i = 0; i < vOrcs.size(); ++i)OrcPack.push_back(vOrcs[i]);
+			for (size_t i = 0; i < vBuildings.size(); ++i)BuildingPack.push_back(FPOINT{ vBuildings[i]->center.x,
+				vBuildings[i]->center.y });
+			for (size_t i = 0; i < vAssets.size(); ++i)AssetPack.push_back(vAssets[i]);
+
+			for (int orc_count = 0; orc_count < vOrcs.size(); ++orc_count)
+			{
+				if (dll::OrcAI((*vOrcs[orc_count]), BuildingPack, OrcPack) == states::idle) 
+					vOrcs[orc_count]->Move(AssetPack, (float)(level));
+
+			}
+		}
+
+
+
 
 		////////////////////////////////////////////////
 
@@ -1259,9 +1337,126 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 		
+		if (!vBuildings.empty())
+		{
+			for (int i = 0; i < vBuildings.size(); ++i)
+			{
+				int aframe{ vBuildings[i]->get_frame() };
+
+				switch (vBuildings[i]->get_type())
+				{
+				case buildings::castle:
+					Draw->DrawBitmap(bmpCastle[aframe], Resizer(bmpCastle[aframe], vBuildings[i]->start.x, 
+						vBuildings[i]->start.y));
+					break;
+
+				case buildings::arhcer:
+					Draw->DrawBitmap(bmpArchTower[aframe], Resizer(bmpArchTower[aframe], vBuildings[i]->start.x,
+						vBuildings[i]->start.y));
+					break;
+
+				case buildings::small_cannon:
+					Draw->DrawBitmap(bmpCannonSmall[aframe], Resizer(bmpCannonSmall[aframe], vBuildings[i]->start.x,
+						vBuildings[i]->start.y));
+					break;
+
+				case buildings::mid_cannon:
+					Draw->DrawBitmap(bmpCannonMid[aframe], Resizer(bmpCannonMid[aframe], vBuildings[i]->start.x,
+						vBuildings[i]->start.y));
+					break;
+
+				case buildings::big_cannon:
+					Draw->DrawBitmap(bmpCannonBig[aframe], Resizer(bmpCannonBig[aframe], vBuildings[i]->start.x,
+						vBuildings[i]->start.y));
+					break;
+
+				case buildings::small_mage:
+					Draw->DrawBitmap(bmpMageSmall[aframe], Resizer(bmpMageSmall[aframe], vBuildings[i]->start.x,
+						vBuildings[i]->start.y));
+					break;
+
+				case buildings::mid_mage:
+					Draw->DrawBitmap(bmpMageMid[aframe], Resizer(bmpMageMid[aframe], vBuildings[i]->start.x,
+						vBuildings[i]->start.y));
+					break;
+
+				case buildings::big_mage:
+					Draw->DrawBitmap(bmpMageBig[aframe], Resizer(bmpMageBig[aframe], vBuildings[i]->start.x,
+						vBuildings[i]->start.y));
+					break;
+
+				case buildings::wall:
+					Draw->DrawBitmap(bmpWall, D2D1::RectF(vBuildings[i]->start.x, vBuildings[i]->start.y,
+						vBuildings[i]->end.x, vBuildings[i]->end.y));
+					break;
+				}
+			}
+		}
 		
-		
-		
+		if (!vOrcs.empty())
+		{
+			for (int i = 0; i < vOrcs.size(); ++i)
+			{
+				int aframe = 0;
+
+				switch (vOrcs[i]->GetType())
+				{
+				case orcs::champion:
+					if (vOrcs[i]->start.x < vBuildings[0]->start.x)
+						Draw->DrawBitmap(bmpChampionR[aframe], Resizer(bmpChampionR[aframe], vOrcs[i]->start.x,
+							vOrcs[i]->start.y));
+					else 
+						Draw->DrawBitmap(bmpChampionL[aframe], Resizer(bmpChampionL[aframe], vOrcs[i]->start.x,
+							vOrcs[i]->start.y));
+					break;
+
+				case orcs::crusher:
+					if (vOrcs[i]->start.x < vBuildings[0]->start.x)
+						Draw->DrawBitmap(bmpCrusherR[aframe], Resizer(bmpCrusherR[aframe], vOrcs[i]->start.x,
+							vOrcs[i]->start.y));
+					else
+						Draw->DrawBitmap(bmpCrusherL[aframe], Resizer(bmpCrusherL[aframe], vOrcs[i]->start.x,
+							vOrcs[i]->start.y));
+					break;
+
+				case orcs::flyer:
+					if (vOrcs[i]->start.x < vBuildings[0]->start.x)
+						Draw->DrawBitmap(bmpFlyerR[aframe], Resizer(bmpFlyerR[aframe], vOrcs[i]->start.x,
+							vOrcs[i]->start.y));
+					else
+						Draw->DrawBitmap(bmpFlyerL[aframe], Resizer(bmpFlyerL[aframe], vOrcs[i]->start.x,
+							vOrcs[i]->start.y));
+					break;
+
+				case orcs::healer:
+					if (vOrcs[i]->start.x < vBuildings[0]->start.x)
+						Draw->DrawBitmap(bmpHealerR[aframe], Resizer(bmpHealerR[aframe], vOrcs[i]->start.x,
+							vOrcs[i]->start.y));
+					else
+						Draw->DrawBitmap(bmpHealerL[aframe], Resizer(bmpHealerL[aframe], vOrcs[i]->start.x,
+							vOrcs[i]->start.y));
+					break;
+
+				case orcs::warrior1:
+					if (vOrcs[i]->start.x < vBuildings[0]->start.x)
+						Draw->DrawBitmap(bmpOrc1R[aframe], Resizer(bmpOrc1R[aframe], vOrcs[i]->start.x,
+							vOrcs[i]->start.y));
+					else
+						Draw->DrawBitmap(bmpOrc1L[aframe], Resizer(bmpOrc1L[aframe], vOrcs[i]->start.x,
+							vOrcs[i]->start.y));
+					break;
+
+				case orcs::warrior2:
+					if (vOrcs[i]->start.x < vBuildings[0]->start.x)
+						Draw->DrawBitmap(bmpOrc2R[aframe], Resizer(bmpOrc2R[aframe], vOrcs[i]->start.x,
+							vOrcs[i]->start.y));
+					else
+						Draw->DrawBitmap(bmpOrc2L[aframe], Resizer(bmpOrc2L[aframe], vOrcs[i]->start.x,
+							vOrcs[i]->start.y));
+					break;
+				}
+			}
+		}
 		
 		
 		

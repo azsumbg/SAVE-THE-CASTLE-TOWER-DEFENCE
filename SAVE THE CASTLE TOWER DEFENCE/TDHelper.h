@@ -36,7 +36,7 @@ enum class states { idle = 0, attack = 1, heal = 2 };
 enum class orcs { warrior1 = 0, warrior2 = 1, crusher = 2, healer = 3, flyer = 4, champion = 5 };
 enum class buildings {
 	arhcer = 0, small_cannon = 1, mid_cannon = 2, big_cannon = 3, small_mage = 4,
-	mid_mage = 5, big_mage = 6, castle = 7, wall = 7
+	mid_mage = 5, big_mage = 6, castle = 7, wall = 8
 };
 enum class assets { rock = 0, small_tree = 1, mid_tree = 2, big_tree = 3 };
 enum class shots { arrow = 0, cannonball = 1, spell = 2 };
