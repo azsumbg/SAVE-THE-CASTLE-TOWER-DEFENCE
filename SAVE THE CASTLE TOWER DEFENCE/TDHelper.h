@@ -35,7 +35,7 @@ enum class states { idle = 0, attack = 1, heal = 2 };
 
 enum class orcs { warrior1 = 0, warrior2 = 1, crusher = 2, healer = 3, flyer = 4, champion = 5 };
 enum class buildings {
-	arhcer = 0, small_cannon = 1, mid_cannon = 2, big_cannon = 3, small_mage = 4,
+	archer = 0, small_cannon = 1, mid_cannon = 2, big_cannon = 3, small_mage = 4,
 	mid_mage = 5, big_mage = 6, castle = 7, wall = 8
 };
 enum class assets { rock = 0, small_tree = 1, mid_tree = 2, big_tree = 3 };
@@ -429,7 +429,7 @@ namespace dll
 	class TDHELPER_API BUILDINGS :public PROTON
 	{
 	private:
-		buildings _type{ buildings::arhcer };
+		buildings _type{ buildings::archer };
 		int strenght{ 0 };
 		float range{ 0 };
 
@@ -478,11 +478,14 @@ namespace dll
 
 		bool hor_dir = false;
 		bool ver_dir = false;
-
+		
 		float speed{ 0 };
 
 		int attack_delay{ 0 };
 		int strenght{ 0 };
+
+		unsigned char move_flag{ no_flag };
+		FRECT bumped_obstacle{ -1.0f, -1.0f, -1.0f, -1.0f };
 
 		int max_lifes{ 0 };
 
@@ -491,7 +494,8 @@ namespace dll
 	public:
 		dirs dir{ dirs::stop };
 		states state = states::idle;
-		
+		bool bumped = false;
+
 		int lifes{ 0 };
 
 		void Release();

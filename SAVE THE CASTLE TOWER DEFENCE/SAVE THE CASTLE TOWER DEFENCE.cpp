@@ -79,6 +79,9 @@ int mins{ 0 };
 int secs{ 0 };
 int level{ 0 };
 int score{ 0 };
+int gold{ 200 };
+
+bool game_over = false;
 
 dll::RANDIT RandIt{};
 
@@ -153,9 +156,16 @@ std::vector<dll::BUILDINGS*> vBuildings;
 
 std::vector<dll::ORCS*> vOrcs;
 
+std::vector<dll::SHOTS*> vGoodShots;
 
+struct EXPLOSION
+{
+	int frame{ 0 };
+	FPOINT point{};
+	int delay = 3;
+};
 
-
+std::vector<EXPLOSION>vExplosions;
 
 ////////////////////////////////////////////////////////
 
@@ -287,9 +297,12 @@ void InitGame()
 	level = 0;
 	score = 0;
 	bTimer = 0;
+	gold = 200;
 
 	wcscpy_s(current_player, L"A KING");
 	name_set = false;
+
+	vExplosions.clear();
 
 	if (!vAssets.empty())
 	{
@@ -309,7 +322,7 @@ void InitGame()
 		}
 	}
 
-	for (int i = 0; i < 15 + level; ++i)
+	for (int i = 0; i < 8 + level; ++i)
 	{
 		bool is_ok{ false };
 
@@ -378,6 +391,11 @@ void InitGame()
 		}
 	}
 
+	if (!vGoodShots.empty())
+	{
+		for (int i = 0; i < vGoodShots.size(); ++i)FreeHeap(&vGoodShots[i]);
+	}
+	
 }
 
 INT_PTR CALLBACK bDlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
@@ -576,9 +594,60 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
 		break;
 
 
+	case WM_LBUTTONDOWN:
 
+		break;
 
+	case WM_RBUTTONDOWN:
+		if (gold >= 50)
+		{
+			dll::BUILDINGS* dummy{ dll::BuildingFactory(buildings::archer,(float)(LOWORD(lParam) * scale_x - 18),
+				(float)(HIWORD(lParam) * scale_y - 40)) };
+			
+			FRECT dummy_rect{ dummy->start.x, dummy->end.x, dummy->start.y, dummy->end.y };
 
+			bool tower_ok = true;
+
+			if (!vAssets.empty())
+			{
+				for (int i = 0; i < vAssets.size(); ++i)
+				{
+					FRECT asset_rect{ vAssets[i]->start.x, vAssets[i]->end.x, vAssets[i]->start.y, vAssets[i]->end.y };
+					if (dll::Intersect(dummy_rect, asset_rect))
+					{
+						if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+						tower_ok = false;
+						break;
+					}
+				}
+			}
+
+			if (!vBuildings.empty())
+			{
+				for (int i = 0; i < vBuildings.size(); ++i)
+				{
+					FRECT asset_rect{ vBuildings[i]->start.x, vBuildings[i]->end.x, 
+						vBuildings[i]->start.y, vBuildings[i]->end.y };
+					if (dll::Intersect(dummy_rect, asset_rect))
+					{
+						if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+						tower_ok = false;
+						break;
+					}
+				}
+			}
+
+			if (tower_ok)
+			{
+				vBuildings.push_back(dummy);
+				if (sound)mciSendString(L"play .\\res\\snd\\build.wav", NULL, NULL, NULL);
+				gold -= 50;
+			}
+
+		}
+		else if(sound)if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+		break;
+	
 	default: return DefWindowProc(hwnd, ReceivedMsg, wParam, lParam);
 	}
 
@@ -1272,15 +1341,147 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 			for (int orc_count = 0; orc_count < vOrcs.size(); ++orc_count)
 			{
-				if (dll::OrcAI((*vOrcs[orc_count]), BuildingPack, OrcPack) == states::idle) 
-					vOrcs[orc_count]->Move(AssetPack, (float)(level));
-
+				dll::OrcAI((*vOrcs[orc_count]), BuildingPack, OrcPack);
+				vOrcs[orc_count]->Move(AssetPack, (float)(level));				
 			}
 		}
 
+		if (!vBuildings.empty() && !vOrcs.empty())
+		{
+			for (int build_count = 0; build_count < vBuildings.size(); ++build_count)
+			{
+				for (int orc_count = 0; orc_count < vOrcs.size(); ++orc_count)
+				{
+					if (dll::Distance(vBuildings[build_count]->center, vOrcs[orc_count]->center) 
+						<= vBuildings[build_count]->get_range())
+					{
+						int shot_strenght = vBuildings[build_count]->attack();
 
+						if (shot_strenght > 0)
+						{
+							if (vBuildings[build_count]->get_type() == buildings::castle
+								|| vBuildings[build_count]->get_type() == buildings::archer)
+								vGoodShots.push_back(dll::ShotFactory(shots::arrow, vBuildings[build_count]->center.x,
+									vBuildings[build_count]->center.y, vOrcs[orc_count]->center.x,
+									vOrcs[orc_count]->center.y, shot_strenght));
+							else if (vBuildings[build_count]->get_type() == buildings::small_cannon
+								|| vBuildings[build_count]->get_type() == buildings::mid_cannon
+								|| vBuildings[build_count]->get_type() == buildings::big_cannon)
+								vGoodShots.push_back(dll::ShotFactory(shots::cannonball, vBuildings[build_count]->center.x,
+									vBuildings[build_count]->center.y, vOrcs[orc_count]->center.x,
+									vOrcs[orc_count]->center.y, shot_strenght));
+							else if (vBuildings[build_count]->get_type() == buildings::small_mage
+								|| vBuildings[build_count]->get_type() == buildings::mid_mage
+								|| vBuildings[build_count]->get_type() == buildings::big_mage)
+								vGoodShots.push_back(dll::ShotFactory(shots::spell, vBuildings[build_count]->center.x,
+									vBuildings[build_count]->center.y, vOrcs[orc_count]->center.x,
+									vOrcs[orc_count]->center.y, shot_strenght));
 
+							unsigned char arr_flag = 0;
+							unsigned char arr_up{ 0b00000001 };
+							unsigned char arr_down{ 0b00000010 };
+							unsigned char arr_left{ 0b00000100 };
+							unsigned char arr_right{ 0b00001000 };
 
+							unsigned char arr_up_right{ 0b00001001 };
+							unsigned char arr_up_left{ 0b00000101 };
+							unsigned char arr_down_right{ 0b00001010 };
+							unsigned char arr_down_left{ 0b00000110 };
+
+							if (vGoodShots.back()->center.x >= vOrcs[orc_count]->center.x)arr_flag |= arr_left;
+							else arr_flag |= arr_right;
+
+							if (vGoodShots.back()->center.y >= vOrcs[orc_count]->center.y)arr_flag |= arr_up;
+							else arr_flag |= arr_down;
+
+							if (arr_flag == arr_up_right)vGoodShots.back()->dir = dirs::up_right;
+							else if (arr_flag == arr_up_left)vGoodShots.back()->dir = dirs::up_left;
+							else if (arr_flag == arr_down_right)vGoodShots.back()->dir = dirs::down_right;
+							else if (arr_flag == arr_down_left)vGoodShots.back()->dir = dirs::down_left;
+						}
+					}
+				}
+			}
+		}
+		
+		if (!vGoodShots.empty())
+		{
+			for (std::vector<dll::SHOTS*>::iterator count = vGoodShots.begin(); count < vGoodShots.end(); ++count)
+			{
+				if (!(*count)->move())
+				{
+					(*count)->Release();
+					vGoodShots.erase(count);
+					break;
+				}
+			}
+		}
+
+		if (!vOrcs.empty() && !vGoodShots.empty())
+		{
+			for (std::vector<dll::ORCS*>::iterator orc = vOrcs.begin(); orc < vOrcs.end(); ++orc)
+			{
+				bool killed = false;
+
+				for (std::vector<dll::SHOTS*>::iterator shot = vGoodShots.begin(); shot < vGoodShots.end(); ++shot)
+				{
+					if (dll::Intersect((*orc)->center, (*shot)->center, (*orc)->x_radius, (*shot)->x_radius,
+						(*orc)->y_radius, (*shot)->y_radius))
+					{
+						(*orc)->lifes -= (*shot)->get_strenght();
+						(*shot)->Release();
+						vGoodShots.erase(shot);
+						killed = true;
+
+						if ((*orc)->lifes <= 0)
+						{
+							if (sound)mciSendString(L"play .\\res\\snd\\evilkilled.wav", NULL, NULL, NULL);
+							score += 10 * level;
+							gold += 10 + RandIt(0, 20);
+							(*orc)->Release();
+							vOrcs.erase(orc);
+						}
+						break;
+					}
+				}
+				if (killed)break;
+			}
+		}
+
+		if (!vOrcs.empty() && !vBuildings.empty())
+		{
+			for (std::vector<dll::ORCS*>::iterator orc = vOrcs.begin(); orc < vOrcs.end(); ++orc)
+			{
+				bool is_ok = true;
+
+				FRECT orc_rect{ (*orc)->start.x, (*orc)->end.x, (*orc)->start.y, (*orc)->end.y };
+
+				for (std::vector<dll::BUILDINGS*>::iterator building = vBuildings.begin(); building < vBuildings.end(); 
+					++building)
+				{
+					FRECT build_rect{ (*building)->start.x, (*building)->end.x, (*building)->start.y, (*building)->end.y };
+
+					if (dll::Intersect(orc_rect, build_rect))
+					{
+						(*building)->lifes -= (*orc)->Attack();
+						if ((*building)->lifes <= 0)
+						{
+							if (sound)mciSendString(L"play .\\res\\snd\\demolish.wav", NULL, NULL, NULL);
+							vExplosions.push_back(EXPLOSION{ 0,(*building)->start });
+							if ((*building)->get_type() == buildings::castle)game_over = true;
+							(*building)->Release();
+							vBuildings.erase(building);
+							is_ok = false;
+							break;
+						}
+					}
+				}
+
+				if (!is_ok)break;
+			}
+		}
+
+		
 		////////////////////////////////////////////////
 
 		// DRAW THINGS *********************************
@@ -1348,41 +1549,65 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 				case buildings::castle:
 					Draw->DrawBitmap(bmpCastle[aframe], Resizer(bmpCastle[aframe], vBuildings[i]->start.x, 
 						vBuildings[i]->start.y));
+					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes * 3), vBuildings[i]->end.y),
+						HgltBrush, 10.0f);
 					break;
 
-				case buildings::arhcer:
+				case buildings::archer:
 					Draw->DrawBitmap(bmpArchTower[aframe], Resizer(bmpArchTower[aframe], vBuildings[i]->start.x,
 						vBuildings[i]->start.y));
+					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
+						HgltBrush, 8.0f);
 					break;
 
 				case buildings::small_cannon:
 					Draw->DrawBitmap(bmpCannonSmall[aframe], Resizer(bmpCannonSmall[aframe], vBuildings[i]->start.x,
 						vBuildings[i]->start.y));
+					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
+						HgltBrush, 8.0f);
 					break;
 
 				case buildings::mid_cannon:
 					Draw->DrawBitmap(bmpCannonMid[aframe], Resizer(bmpCannonMid[aframe], vBuildings[i]->start.x,
 						vBuildings[i]->start.y));
+					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
+						HgltBrush, 8.0f);
 					break;
 
 				case buildings::big_cannon:
 					Draw->DrawBitmap(bmpCannonBig[aframe], Resizer(bmpCannonBig[aframe], vBuildings[i]->start.x,
 						vBuildings[i]->start.y));
+					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
+						HgltBrush, 8.0f);
 					break;
 
 				case buildings::small_mage:
 					Draw->DrawBitmap(bmpMageSmall[aframe], Resizer(bmpMageSmall[aframe], vBuildings[i]->start.x,
 						vBuildings[i]->start.y));
+					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
+						HgltBrush, 8.0f);
 					break;
 
 				case buildings::mid_mage:
 					Draw->DrawBitmap(bmpMageMid[aframe], Resizer(bmpMageMid[aframe], vBuildings[i]->start.x,
 						vBuildings[i]->start.y));
+					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
+						HgltBrush, 8.0f);
 					break;
 
 				case buildings::big_mage:
 					Draw->DrawBitmap(bmpMageBig[aframe], Resizer(bmpMageBig[aframe], vBuildings[i]->start.x,
 						vBuildings[i]->start.y));
+					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
+						HgltBrush, 8.0f);
 					break;
 
 				case buildings::wall:
@@ -1397,7 +1622,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 		{
 			for (int i = 0; i < vOrcs.size(); ++i)
 			{
-				int aframe = 0;
+				int aframe = vOrcs[i]->GetFrame();
 
 				switch (vOrcs[i]->GetType())
 				{
@@ -1455,14 +1680,80 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 							vOrcs[i]->start.y));
 					break;
 				}
+
+				Draw->DrawLine(D2D1::Point2F(vOrcs[i]->start.x, vOrcs[i]->end.y),
+					D2D1::Point2F(vOrcs[i]->start.x + (float)(vOrcs[i]->lifes / 2), vOrcs[i]->end.y),
+					InactBrush, 5.0f);
 			}
 		}
 		
+		if (!vGoodShots.empty())
+		{
+			for (int i = 0; i < vGoodShots.size(); ++i)
+			{
+				switch (vGoodShots[i]->get_type())
+				{
+				case shots::arrow:
+					switch (vGoodShots[i]->dir)
+					{
+					case dirs::up_right:
+						Draw->DrawBitmap(bmpArrowUpR, D2D1::RectF(vGoodShots[i]->start.x, vGoodShots[i]->start.y,
+							vGoodShots[i]->end.x, vGoodShots[i]->end.y));
+						break;
+
+					case dirs::up_left:
+						Draw->DrawBitmap(bmpArrowUpL, D2D1::RectF(vGoodShots[i]->start.x, vGoodShots[i]->start.y,
+							vGoodShots[i]->end.x, vGoodShots[i]->end.y));
+						break;
+
+					case dirs::down_right:
+						Draw->DrawBitmap(bmpArrowDownR, D2D1::RectF(vGoodShots[i]->start.x, vGoodShots[i]->start.y,
+							vGoodShots[i]->end.x, vGoodShots[i]->end.y));
+						break;
+
+					case dirs::down_left:
+						Draw->DrawBitmap(bmpArrowDownL, D2D1::RectF(vGoodShots[i]->start.x, vGoodShots[i]->start.y,
+							vGoodShots[i]->end.x, vGoodShots[i]->end.y));
+						break;
+					}
+					break;
+
+				case shots::cannonball:
+					Draw->DrawBitmap(bmpCannonBall, D2D1::RectF(vGoodShots[i]->start.x, vGoodShots[i]->start.y,
+						vGoodShots[i]->end.x, vGoodShots[i]->end.y));
+					break;
+
+				case shots::spell:
+					{
+						int aframe = vGoodShots[i]->get_frame();
+				
+						Draw->DrawBitmap(bmpSpell[aframe], Resizer(bmpSpell[aframe], vGoodShots[i]->start.x,
+							vGoodShots[i]->start.y));
+					}
+					break;
+				}
+			}
+		}
 		
-		
-		
-		
-		
+		if (!vExplosions.empty())
+		{
+			for (int i = 0; i < vExplosions.size(); ++i)
+			{
+				vExplosions[i].delay--;
+				if (vExplosions[i].delay <= 0)
+				{
+					vExplosions[i].delay = 3;
+					vExplosions[i].frame++;
+					if (vExplosions[i].frame > 23)
+					{
+						vExplosions.erase(vExplosions.begin() + i);
+						break;
+					}
+					else Draw->DrawBitmap(bmpExplosion[vExplosions[i].frame],
+						Resizer(bmpExplosion[vExplosions[i].frame], vExplosions[i].point.x, vExplosions[i].point.y));
+				}
+			}
+		}
 		
 		////////////////////////////////////////////////
 		
