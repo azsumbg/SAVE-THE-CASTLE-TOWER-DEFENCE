@@ -79,7 +79,7 @@ int mins{ 0 };
 int secs{ 0 };
 int level{ 0 };
 int score{ 0 };
-int gold{ 200 };
+int gold{ 100 };
 
 bool game_over = false;
 
@@ -297,7 +297,7 @@ void InitGame()
 	level = 0;
 	score = 0;
 	bTimer = 0;
-	gold = 200;
+	gold = 100;
 
 	wcscpy_s(current_player, L"A KING");
 	name_set = false;
@@ -1311,7 +1311,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 		/////////////////////////////////////////////////
 
-		if (vOrcs.size() < 10 + level && RandIt(0, 5) == 3)
+		if (vOrcs.size() < 15 + level && RandIt(0, 5) == 3)
 		{
 			float orc_sx{ 0 };
 			float orc_sy{ 0 };
@@ -1509,6 +1509,46 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			Draw->DrawBitmap(bmpField, D2D1::RectF(0, 50.0f, scr_width, scr_height));
 		}
 
+		if (TxtBrush && midFormat)
+		{
+			wchar_t stat_txt[150]{ L"\0" };
+			wchar_t add[5]{ L"\0" };
+
+			int txt_size = 0;
+
+			wcscpy_s(stat_txt, L"крал: ");
+			wcscat_s(stat_txt, current_player);
+
+			wsprintf(add, L"%d", gold);
+			wcscat_s(stat_txt, L", злато: ");
+			wcscat_s(stat_txt, add);
+
+			wsprintf(add, L"%d", score);
+			wcscat_s(stat_txt, L", резултат: ");
+			wcscat_s(stat_txt, add);
+
+			for (int i = 0; i < 150; ++i)
+			{
+				if (stat_txt[i] != '\0')++txt_size;
+				else break;
+			}
+
+			Draw->DrawTextW(stat_txt, txt_size, midFormat, D2D1::RectF(100.0f, ground + 5.0f, scr_width, scr_height), TxtBrush);
+
+			wcscpy_s(stat_txt, L"0");
+
+			wsprintf(add, L"%d", mins);
+			wcscat_s(stat_txt, add);
+			wcscat_s(stat_txt, L" : ");
+			if (secs - mins * 60 < 10) wcscat_s(stat_txt, L"0");
+			wsprintf(add, L"%d", secs - mins * 60);
+			wcscat_s(stat_txt, add);
+			Draw->DrawTextW(stat_txt, 8, midFormat, D2D1::RectF(scr_width - 200.0f, sky + 5.0f, scr_width, scr_height), TxtBrush);
+		}
+
+
+		//////////////////////////////////////////////////
+
 		if (!vAssets.empty())
 		{
 			for (int i = 0; i < vAssets.size(); ++i)
@@ -1618,7 +1658,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 		
-		if (!vOrcs.empty())
+		if (!vOrcs.empty() && !vBuildings.empty())
 		{
 			for (int i = 0; i < vOrcs.size(); ++i)
 			{
