@@ -330,8 +330,8 @@ void InitGame()
 		{
 			is_ok = true;
 
-			dll::ASSETS* dummy = dll::AssetFactory(static_cast<assets>(RandIt(0, 3)),
-				static_cast<float>(RandIt(100, 900)), static_cast<float>(RandIt(60, 700)));
+			dll::ASSETS* dummy = dll::AssetFactory(static_cast<assets>(RandIt(0, 4)),
+				static_cast<float>(RandIt(100, 900)), static_cast<float>(RandIt(60, 600)));
 			if (!vAssets.empty())
 			{
 				for (int k = 0; k < vAssets.size(); ++k)
@@ -1311,18 +1311,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 		/////////////////////////////////////////////////
 
-		if (vOrcs.size() < 15 + level && RandIt(0, 5) == 3)
+		if (vOrcs.size() < 10 + level && RandIt(0, 100) == 66)
 		{
 			float orc_sx{ 0 };
 			float orc_sy{ 0 };
 
 			if (!vBuildings.empty())
 			{
-				if (vBuildings[0]->start.x > scr_width / 2.0f)orc_sx = -100.0f;
-				else orc_sx = scr_width;
+				if (vBuildings[0]->start.x > scr_width / 2.0f)orc_sx = (float)(RandIt(-100, 450));
+				else orc_sx = (float)(550, (int)(scr_width));
 
-				if (vBuildings[0]->start.y > scr_height / 2.0f)orc_sy = 0;
-				else orc_sy = ground;
+				if (vBuildings[0]->start.y > scr_height / 2.0f)orc_sy = (float)(RandIt(50, 250));
+				else orc_sy = (float)(350, (int)(ground));
 			}
 
 			vOrcs.push_back(dll::OrcFactory(static_cast<orcs>(RandIt(0, 4)), orc_sx, orc_sy));
@@ -1342,7 +1342,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			for (int orc_count = 0; orc_count < vOrcs.size(); ++orc_count)
 			{
 				dll::OrcAI((*vOrcs[orc_count]), BuildingPack, OrcPack);
-				vOrcs[orc_count]->Move(AssetPack, (float)(level));				
+				vOrcs[orc_count]->Move(AssetPack, (float)(level));
 			}
 		}
 
@@ -1437,7 +1437,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 						{
 							if (sound)mciSendString(L"play .\\res\\snd\\evilkilled.wav", NULL, NULL, NULL);
 							score += 10 * level;
-							gold += 10 + RandIt(0, 20);
+							gold += RandIt(10, 20);
 							(*orc)->Release();
 							vOrcs.erase(orc);
 						}
@@ -1478,6 +1478,45 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 				}
 
 				if (!is_ok)break;
+			}
+		}
+
+		if (!vOrcs.empty())
+		{
+			for (std::vector<dll::ORCS*>::iterator orcs = vOrcs.begin(); orcs < vOrcs.end(); ++orcs)
+			{
+				dll::ORCS* check_orc = (*orcs);
+
+				bool healed = false;
+
+				if (check_orc->GetType() == orcs::healer)
+				{
+					for (std::vector<dll::ORCS*>::iterator other = vOrcs.begin(); other < vOrcs.end(); ++other)
+					{
+						FRECT healer{ check_orc->start.x, check_orc->end.x, check_orc->start.y, check_orc->end.y };
+						FRECT target{ (*other)->start.x, (*other)->end.x, (*other)->start.y, (*other)->end.y };
+
+						if (check_orc->GetNumber() != (*other)->GetNumber())
+						{
+							FRECT healer{ check_orc->start.x, check_orc->end.x, check_orc->start.y, check_orc->end.y };
+							FRECT target{ (*other)->start.x, (*other)->end.x, (*other)->start.y, (*other)->end.y };
+
+							if (dll::Intersect(healer, target) && (*other)->lifes < (*other)->GetMaxLifes())
+							{
+								int med = check_orc->Attack();
+								if (med > 0)
+								{
+									if ((*other)->lifes + med <= (*other)->GetMaxLifes())(*other)->lifes += med;
+									else (*other)->lifes = (*other)->GetMaxLifes();
+									healed = true;
+									break;
+								}
+							}
+						}
+					}
+				}
+
+				if (healed)break;
 			}
 		}
 
@@ -1574,6 +1613,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					Draw->DrawBitmap(bmpBigTree, D2D1::RectF(vAssets[i]->start.x, vAssets[i]->start.y,
 						vAssets[i]->end.x, vAssets[i]->end.y));
 					break;
+
+				case assets::wall:
+					Draw->DrawBitmap(bmpWall, D2D1::RectF(vAssets[i]->start.x, vAssets[i]->start.y,
+						vAssets[i]->end.x, vAssets[i]->end.y));
+					break;
 				}
 			}
 		}
@@ -1648,11 +1692,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
 						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
 						HgltBrush, 8.0f);
-					break;
-
-				case buildings::wall:
-					Draw->DrawBitmap(bmpWall, D2D1::RectF(vBuildings[i]->start.x, vBuildings[i]->start.y,
-						vBuildings[i]->end.x, vBuildings[i]->end.y));
 					break;
 				}
 			}
