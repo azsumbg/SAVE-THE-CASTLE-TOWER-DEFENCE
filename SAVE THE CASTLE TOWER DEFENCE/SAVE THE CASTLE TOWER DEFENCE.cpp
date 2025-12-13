@@ -297,7 +297,7 @@ void InitGame()
 	level = 0;
 	score = 0;
 	bTimer = 0;
-	gold = 100;
+	gold = 150;
 
 	wcscpy_s(current_player, L"A KING");
 	name_set = false;
@@ -595,7 +595,89 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
 
 
 	case WM_LBUTTONDOWN:
+		if (!vBuildings.empty())
+		{
+			int x_cur_pos = (int)(cur_pos.x * (int)(scale_x));
+			int y_cur_pos = (int)(cur_pos.y * (int)(scale_y));
 
+			for (std::vector<dll::BUILDINGS*>::iterator build = vBuildings.begin(); build < vBuildings.end(); ++build)
+			{
+				if ((*build)->get_type() != buildings::castle)
+				{
+					switch ((*build)->get_type())
+					{
+					case buildings::archer:
+						if (gold >= 100)
+						{
+							(*build)->set_type(buildings::small_cannon);
+							(*build)->lifes = 75;
+							if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+							break;
+						}
+						else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+						break;
+
+					case buildings::small_cannon:
+						if (gold >= 120)
+						{
+							(*build)->set_type(buildings::mid_cannon);
+							(*build)->lifes = 100;
+							if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+							break;
+						}
+						else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+						break;
+
+					case buildings::mid_cannon:
+						if (gold >= 140)
+						{
+							(*build)->set_type(buildings::big_cannon);
+							(*build)->lifes = 250;
+							if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+							break;
+						}
+						else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+						break;
+
+					case buildings::big_cannon:
+						if (gold >= 100)
+						{
+							(*build)->set_type(buildings::small_mage);
+							(*build)->lifes = 100;
+							if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+							break;
+						}
+						else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+						break;
+
+					case buildings::small_mage:
+						if (gold >= 120)
+						{
+							(*build)->set_type(buildings::mid_mage);
+							(*build)->lifes = 120;
+							if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+							break;
+						}
+						else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+						break;
+
+					case buildings::mid_mage:
+						if (gold >= 140)
+						{
+							(*build)->set_type(buildings::big_mage);
+							(*build)->lifes = 180;
+							if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+							break;
+						}
+						else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+						break;
+
+					default: if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+					}
+				}
+			}
+		}
+		else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
 		break;
 
 	case WM_RBUTTONDOWN:
