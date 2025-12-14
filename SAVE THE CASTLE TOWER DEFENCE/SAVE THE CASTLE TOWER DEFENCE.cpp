@@ -25,7 +25,7 @@ constexpr wchar_t Ltmp_file[]{ L".\\res\\data\\temp.dat" };
 constexpr wchar_t save_file[]{ L".\\res\\data\\save.dat" };
 constexpr wchar_t help_file[]{ L".\\res\\data\\help.dat" };
 constexpr wchar_t record_file[]{ L".\\res\\data\\record.dat" };
-constexpr wchar_t snd_file[]{ L".\\res\\snd\\sound.wav" };
+constexpr wchar_t snd_file[]{ L".\\res\\snd\\main.wav" };
 
 constexpr int mNew{ 1001 };
 constexpr int mExit{ 1002 };
@@ -395,7 +395,7 @@ void InitGame()
 {
 	mins = 0;
 	secs = 0;
-	level = 0;
+	level = 1;
 	score = 0;
 	bTimer = 0;
 	gold = 150;
@@ -439,7 +439,8 @@ void InitGame()
 			{
 				for (int k = 0; k < vAssets.size(); ++k)
 				{
-					FRECT dummy_rect{ dummy->start.x,dummy->end.x,dummy->start.y,dummy->end.y };
+					FRECT dummy_rect{ dummy->start.x - 50.0f,dummy->end.x + 50.0f,
+						dummy->start.y - 50.0f,dummy->end.y + 50.0f };
 					FRECT existing_rect{ vAssets[k]->start.x,vAssets[k]->end.x, vAssets[k]->start.y,vAssets[k]->end.y };
 
 					if (dll::Intersect(dummy_rect, existing_rect))
@@ -540,11 +541,11 @@ void LevelUp()
 
 		if (!vBuildings.empty())
 		{
-			if (vBuildings[0]->start.x > scr_width / 2.0f)orc_sx = (float)(RandIt(-100, 450));
-			else orc_sx = (float)RandIt(550, (int)(scr_width));
+			if (vBuildings[0]->start.x > scr_width / 2.0f)orc_sx = -100;
+			else orc_sx = (int)(scr_width);
 
-			if (vBuildings[0]->start.y > scr_height / 2.0f)orc_sy = (float)(RandIt(50, 250));
-			else orc_sy = (float)RandIt(350, (int)(ground));
+			if (vBuildings[0]->start.y > scr_height / 2.0f)orc_sy = -50;
+			else orc_sy = (int)(ground);
 		}
 
 		if (sound)mciSendString(L"play .\\res\\snd\\champion.wav", NULL, NULL, NULL);
@@ -603,7 +604,7 @@ void HallOfFame()
 	Draw->BeginDraw();
 	Draw->Clear(D2D1::ColorF(D2D1::ColorF::BurlyWood));
 	if (bigFormat && InactBrush)
-		Draw->DrawTextW(rec_txt, result, bigFormat, D2D1::RectF(100.0f, 100.0f, scr_width, scr_height), InactBrush);
+		Draw->DrawTextW(rec_txt, result, bigFormat, D2D1::RectF(10.0f, 80.0f, scr_width, scr_height), InactBrush);
 	Draw->EndDraw();
 	
 	if (sound)mciSendString(L"play .\\res\\snd\\showrec.wav", NULL, NULL, NULL);
@@ -639,6 +640,26 @@ void ShowHelp()
 
 	Draw->BeginDraw();
 	Draw->Clear(D2D1::ColorF(D2D1::ColorF::BurlyWood));
+	if (TxtBrush && HgltBrush && InactBrush && nrmFormat && b1Bckg && b2Bckg && b3Bckg && StatBrush)
+	{
+		Draw->FillRectangle(D2D1::RectF(0, 0, scr_width, 50.0f), StatBrush);
+		Draw->FillRoundedRectangle(D2D1::RoundedRect(b1Rect, 20.0f, 25.0f), b1Bckg);
+		Draw->FillRoundedRectangle(D2D1::RoundedRect(b2Rect, 20.0f, 25.0f), b2Bckg);
+		Draw->FillRoundedRectangle(D2D1::RoundedRect(b3Rect, 20.0f, 25.0f), b3Bckg);
+
+		if (name_set)Draw->DrawText(L"ИМЕ НА КРАЛ", 12, nrmFormat, b1TxtRect, InactBrush);
+		else
+		{
+			if (b1Hglt)Draw->DrawText(L"ИМЕ НА КРАЛ", 12, nrmFormat, b1TxtRect, HgltBrush);
+			else Draw->DrawText(L"ИМЕ НА КРАЛ", 12, nrmFormat, b1TxtRect, TxtBrush);
+		}
+		if (b2Hglt)Draw->DrawText(L"ЗВУЦИ ON / OFF", 15, nrmFormat, b2TxtRect, HgltBrush);
+		else Draw->DrawText(L"ЗВУЦИ ON / OFF", 15, nrmFormat, b2TxtRect, TxtBrush);
+		if (b3Hglt)Draw->DrawText(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, HgltBrush);
+		else Draw->DrawText(L"ПОМОЩ ЗА ИГРАТА", 16, nrmFormat, b3TxtRect, TxtBrush);
+
+		Draw->DrawBitmap(bmpField, D2D1::RectF(0, 50.0f, scr_width, scr_height));
+	}
 	if (midFormat && InactBrush)
 		Draw->DrawTextW(help_txt, result, midFormat, D2D1::RectF(50.0f, 100.0f, scr_width, scr_height), InactBrush);
 	Draw->EndDraw();
@@ -784,49 +805,58 @@ void LoadGame()
 	save >> result;
 	if (result > 0)
 	{
-		float sx{ 0 };
-		float sy{ 0 };
-		int type{ 0 };
+		for (int i = 0; i < result; ++i)
+		{
+			float sx{ 0 };
+			float sy{ 0 };
+			int type{ 0 };
 
-		save >> type;
-		save >> sx;
-		save >> sy;
+			save >> type;
+			save >> sx;
+			save >> sy;
 
-		vAssets.push_back(dll::AssetFactory(static_cast<assets>(type), sx, sy));
+			vAssets.push_back(dll::AssetFactory(static_cast<assets>(type), sx, sy));
+		}
 	}
 
 	save >> result;
 	if (result > 0)
 	{
-		float sx{ 0 };
-		float sy{ 0 };
-		int type{ 0 };
-		int lifes{ 0 };
+		for (int i = 0; i < result; ++i)
+		{
+			float sx{ 0 };
+			float sy{ 0 };
+			int type{ 0 };
+			int lifes{ 0 };
 
-		save >> type;
-		save >> sx;
-		save >> sy;
-		save >> lifes;
+			save >> type;
+			save >> sx;
+			save >> sy;
+			save >> lifes;
 
-		vBuildings.push_back(dll::BuildingFactory(static_cast<buildings>(type), sx, sy));
-		vBuildings.back()->lifes = lifes;
+			vBuildings.push_back(dll::BuildingFactory(static_cast<buildings>(type), sx, sy));
+			vBuildings.back()->lifes = lifes;
+		}
 	}
 
 	save >> result;
 	if (result > 0)
 	{
-		float sx{ 0 };
-		float sy{ 0 };
-		int type{ 0 };
-		int lifes{ 0 };
+		for (int i = 0; i < result; ++i)
+		{
+			float sx{ 0 };
+			float sy{ 0 };
+			int type{ 0 };
+			int lifes{ 0 };
 
-		save >> type;
-		save >> sx;
-		save >> sy;
-		save >> lifes;
+			save >> type;
+			save >> sx;
+			save >> sy;
+			save >> lifes;
 
-		vOrcs.push_back(dll::OrcFactory(static_cast<orcs>(type), sx, sy));
-		vOrcs.back()->lifes = lifes;
+			vOrcs.push_back(dll::OrcFactory(static_cast<orcs>(type), sx, sy));
+			vOrcs.back()->lifes = lifes;
+		}
 	}
 
 	save.close();
@@ -893,7 +923,7 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
 			AppendMenu(bMain, MF_STRING, mExit, L"Изход");
 
 			AppendMenu(bStore, MF_STRING, mSave, L"Запазване на игра");
-			AppendMenu(bStore, MF_STRING, mLoad, L"зареждане на игра");
+			AppendMenu(bStore, MF_STRING, mLoad, L"Зареждане на игра");
 			AppendMenu(bStore, MF_SEPARATOR, NULL, NULL);
 			AppendMenu(bStore, MF_STRING, mHoF, L"Зала на славата");
 
@@ -1049,7 +1079,7 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
 		break;
 
 	case WM_LBUTTONDOWN:
-		if (cur_pos.y * scale_y <= 50)
+		if (HIWORD(lParam) * (int)(scale_y) <= 50)
 		{
 			if (cur_pos.x * scale_x >= b1Rect.left && cur_pos.x * scale_x <= b1Rect.right)
 			{
@@ -1104,15 +1134,14 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
 		{
 			if (!vBuildings.empty())
 			{
-				int x_cur_pos = (int)(cur_pos.x * (int)(scale_x));
-				int y_cur_pos = (int)(cur_pos.y * (int)(scale_y));
-
 				for (std::vector<dll::BUILDINGS*>::iterator build = vBuildings.begin(); build < vBuildings.end(); ++build)
 				{
 					bool upgraded = false;
 
-					if (x_cur_pos >= (*build)->start.x && x_cur_pos <= (*build)->end.x
-						&& y_cur_pos >= (*build)->start.y && y_cur_pos <= (*build)->end.y)
+					if (LOWORD(lParam) * (int)(scale_x) >= (*build)->start.x 
+						&& LOWORD(lParam) * (int)(scale_x) <= (*build)->end.x
+						&& HIWORD(lParam) * (int)(scale_y) >= (*build)->start.y 
+						&& HIWORD(lParam) * (int)(scale_y) <= (*build)->end.y)
 					{
 						if ((*build)->get_type() != buildings::castle)
 						{
@@ -1870,7 +1899,7 @@ void CreateResources()
 			hr = iWriteFactory->CreateTextFormat(L"GNABRI", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
 				DWRITE_FONT_STRETCH_NORMAL, 28.0f, L"", &midFormat);
 			hr = iWriteFactory->CreateTextFormat(L"GNABRI", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
-				DWRITE_FONT_STRETCH_NORMAL, 72.0f, L"", &bigFormat);
+				DWRITE_FONT_STRETCH_NORMAL, 64.0f, L"", &bigFormat);
 			if (hr != S_OK)
 			{
 				LogErr(L"Error creating iWriteFactory Text Formats!");
@@ -1905,6 +1934,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 	}
 
 	CreateResources();
+
+	PlaySound(snd_file, NULL, SND_LOOP | SND_ASYNC);
 
 	while (bMsg.message != WM_QUIT)
 	{

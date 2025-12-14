@@ -462,6 +462,8 @@ namespace dll
 	private:
 		orcs _type{ orcs::warrior1 };
 
+		RANDIT Randerer{};
+
 		static unsigned int _counter;
 		int _my_number{ 0 };
 
