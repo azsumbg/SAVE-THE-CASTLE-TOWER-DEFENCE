@@ -110,6 +110,10 @@ ID2D1Bitmap* bmpMidTree{ nullptr };
 ID2D1Bitmap* bmpBigTree{ nullptr };
 ID2D1Bitmap* bmpWall{ nullptr };
 
+ID2D1Bitmap* bmpLevelUp{ nullptr };
+ID2D1Bitmap* bmpWin{ nullptr };
+ID2D1Bitmap* bmpLoose{ nullptr };
+
 ID2D1Bitmap* bmpArrowUpL{ nullptr };
 ID2D1Bitmap* bmpArrowDownL{ nullptr };
 ID2D1Bitmap* bmpArrowUpR{ nullptr };
@@ -162,7 +166,7 @@ struct EXPLOSION
 {
 	int frame{ 0 };
 	FPOINT point{};
-	int delay = 3;
+	int delay = 5;
 };
 
 std::vector<EXPLOSION>vExplosions;
@@ -216,6 +220,10 @@ void ClearResources()
 	if (!(FreeHeap(&bmpMidTree)))LogErr(L"Error clearing bmpMidTree !");
 	if (!(FreeHeap(&bmpBigTree)))LogErr(L"Error clearing bmpBigTree !");
 	if (!(FreeHeap(&bmpWall)))LogErr(L"Error clearing bmpWall !");
+
+	if (!(FreeHeap(&bmpLevelUp)))LogErr(L"Error clearing bmpLevelUp !");
+	if (!(FreeHeap(&bmpWin)))LogErr(L"Error clearing bmpWin !");
+	if (!(FreeHeap(&bmpLoose)))LogErr(L"Error clearing bmpLoose !");
 
 	if (!(FreeHeap(&bmpArrowUpL)))LogErr(L"Error clearing bmpArrowUpL !");
 	if (!(FreeHeap(&bmpArrowDownL)))LogErr(L"Error clearing bmpArrowDownL !");
@@ -312,7 +320,8 @@ void InitGame()
 			vAssets[i] = nullptr;
 		}
 	}
-	
+	vAssets.clear();
+
 	if (!vBuildings.empty())
 	{
 		for (int i = 0; i < vBuildings.size(); ++i)
@@ -321,6 +330,7 @@ void InitGame()
 			vBuildings[i] = nullptr;
 		}
 	}
+	vBuildings.clear();
 
 	for (int i = 0; i < 8 + level; ++i)
 	{
@@ -390,12 +400,70 @@ void InitGame()
 			vOrcs[i] = nullptr;
 		}
 	}
+	vOrcs.clear();
 
 	if (!vGoodShots.empty())
 	{
 		for (int i = 0; i < vGoodShots.size(); ++i)FreeHeap(&vGoodShots[i]);
 	}
+	vGoodShots.clear();
+}
+void LevelUp()
+{
+	mins = 0;
+	secs = 0;
+	Draw->EndDraw();
+	if (sound)PlaySound(NULL, NULL, NULL);
+
+	Draw->BeginDraw();
+	Draw->Clear(D2D1::ColorF(D2D1::ColorF::LimeGreen));
+	Draw->DrawBitmap(bmpLevelUp, D2D1::RectF(0, 0, scr_width, scr_height));
+	Draw->EndDraw();
+
+	if (sound)
+	{
+		PlaySound(L".\\res\\snd\\levelup.wav", NULL, SND_SYNC);
+		PlaySound(snd_file, NULL, SND_ASYNC | SND_LOOP);
+		Sleep(1500);
+	}
+	else Sleep(3500);
 	
+	++level;
+	
+	if (level == 5)
+	{
+		if (!vOrcs.empty())
+		{
+			for (int i = 0; i < vOrcs.size(); ++i)
+			{
+				FreeHeap(&vOrcs[i]);
+				vOrcs[i] = nullptr;
+			}
+		}
+		vOrcs.clear();
+		
+		float orc_sx{ 0 };
+		float orc_sy{ 0 };
+
+		if (!vBuildings.empty())
+		{
+			if (vBuildings[0]->start.x > scr_width / 2.0f)orc_sx = (float)(RandIt(-100, 450));
+			else orc_sx = (float)RandIt(550, (int)(scr_width));
+
+			if (vBuildings[0]->start.y > scr_height / 2.0f)orc_sy = (float)(RandIt(50, 250));
+			else orc_sy = (float)RandIt(350, (int)(ground));
+		}
+
+		vOrcs.push_back(dll::OrcFactory(orcs::champion, orc_sx, orc_sy));
+	}
+	
+	if (!vGoodShots.empty())
+	{
+		for (int i = 0; i < vGoodShots.size(); ++i)FreeHeap(&vGoodShots[i]);
+	}
+
+	vGoodShots.clear();
+	vExplosions.clear();
 }
 
 INT_PTR CALLBACK bDlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
@@ -481,6 +549,7 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
 		if (pause)break;
 		++secs;
 		mins = secs / 60;
+		if (secs > 300 && level < 5)LevelUp();
 		break;
 
 	case WM_PAINT:
@@ -593,7 +662,6 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
 		}
 		break;
 
-
 	case WM_LBUTTONDOWN:
 		if (!vBuildings.empty())
 		{
@@ -602,79 +670,92 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
 
 			for (std::vector<dll::BUILDINGS*>::iterator build = vBuildings.begin(); build < vBuildings.end(); ++build)
 			{
-				if ((*build)->get_type() != buildings::castle)
+				bool upgraded = false;
+
+				if (x_cur_pos >= (*build)->start.x && x_cur_pos <= (*build)->end.x
+					&& y_cur_pos >= (*build)->start.y && y_cur_pos <= (*build)->end.y)
 				{
-					switch ((*build)->get_type())
+					if ((*build)->get_type() != buildings::castle)
 					{
-					case buildings::archer:
-						if (gold >= 100)
+						switch ((*build)->get_type())
 						{
-							(*build)->set_type(buildings::small_cannon);
-							(*build)->lifes = 75;
-							if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+						case buildings::archer:
+							if (gold >= 100)
+							{
+								(*build)->set_type(buildings::small_cannon);
+								(*build)->lifes = 75;
+								upgraded = true;
+								if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+								break;
+							}
+							else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
 							break;
-						}
-						else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-						break;
 
-					case buildings::small_cannon:
-						if (gold >= 120)
-						{
-							(*build)->set_type(buildings::mid_cannon);
-							(*build)->lifes = 100;
-							if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+						case buildings::small_cannon:
+							if (gold >= 120)
+							{
+								(*build)->set_type(buildings::mid_cannon);
+								(*build)->lifes = 100;
+								upgraded = true;
+								if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+								break;
+							}
+							else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
 							break;
-						}
-						else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-						break;
 
-					case buildings::mid_cannon:
-						if (gold >= 140)
-						{
-							(*build)->set_type(buildings::big_cannon);
-							(*build)->lifes = 250;
-							if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+						case buildings::mid_cannon:
+							if (gold >= 140)
+							{
+								(*build)->set_type(buildings::big_cannon);
+								(*build)->lifes = 250;
+								upgraded = true;
+								if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+								break;
+							}
+							else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
 							break;
-						}
-						else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-						break;
 
-					case buildings::big_cannon:
-						if (gold >= 100)
-						{
-							(*build)->set_type(buildings::small_mage);
-							(*build)->lifes = 100;
-							if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+						case buildings::big_cannon:
+							if (gold >= 100)
+							{
+								(*build)->set_type(buildings::small_mage);
+								(*build)->lifes = 100;
+								upgraded = true;
+								if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+								break;
+							}
+							else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
 							break;
-						}
-						else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-						break;
 
-					case buildings::small_mage:
-						if (gold >= 120)
-						{
-							(*build)->set_type(buildings::mid_mage);
-							(*build)->lifes = 120;
-							if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+						case buildings::small_mage:
+							if (gold >= 120)
+							{
+								(*build)->set_type(buildings::mid_mage);
+								(*build)->lifes = 120;
+								if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+								break;
+							}
+							else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
 							break;
-						}
-						else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-						break;
 
-					case buildings::mid_mage:
-						if (gold >= 140)
-						{
-							(*build)->set_type(buildings::big_mage);
-							(*build)->lifes = 180;
-							if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+						case buildings::mid_mage:
+							if (gold >= 140)
+							{
+								(*build)->set_type(buildings::big_mage);
+								(*build)->lifes = 180;
+								upgraded = true;
+								if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+								break;
+							}
+							else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
 							break;
-						}
-						else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-						break;
 
-					default: if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+						default: if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+						}
 					}
 				}
+
+				if (upgraded)break;
 			}
 		}
 		else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
@@ -892,6 +973,25 @@ void CreateResources()
 			if (!bmpBigTree)
 			{
 				LogErr(L"Error creating bmpBigTree !");
+				ErrExit(eD2D);
+			}
+
+			bmpLevelUp = Load(L".\\res\\img\\field\\levelup.png", Draw);
+			if (!bmpLevelUp)
+			{
+				LogErr(L"Error creating bmpLevelUp !");
+				ErrExit(eD2D);
+			}
+			bmpWin = Load(L".\\res\\img\\field\\win.png", Draw);
+			if (!bmpWin)
+			{
+				LogErr(L"Error creating bmpWin !");
+				ErrExit(eD2D);
+			}
+			bmpLoose = Load(L".\\res\\img\\field\\loose.png", Draw);
+			if (!bmpLoose)
+			{
+				LogErr(L"Error creating bmpLoose !");
 				ErrExit(eD2D);
 			}
 
@@ -1351,7 +1451,6 @@ void CreateResources()
 		}
 		Sleep(3000);
 	}
-
 }
 
 /// /////////////////////////////////////////////////////
@@ -1393,7 +1492,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 		/////////////////////////////////////////////////
 
-		if (vOrcs.size() < 10 + level && RandIt(0, 100) == 66)
+		if (vOrcs.size() < 10 + level && level < 5 && RandIt(0, 100) == 66)
 		{
 			float orc_sx{ 0 };
 			float orc_sy{ 0 };
@@ -1401,10 +1500,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			if (!vBuildings.empty())
 			{
 				if (vBuildings[0]->start.x > scr_width / 2.0f)orc_sx = (float)(RandIt(-100, 450));
-				else orc_sx = (float)(550, (int)(scr_width));
+				else orc_sx = (float)RandIt(550, (int)(scr_width));
 
 				if (vBuildings[0]->start.y > scr_height / 2.0f)orc_sy = (float)(RandIt(50, 250));
-				else orc_sy = (float)(350, (int)(ground));
+				else orc_sy = (float)RandIt(350, (int)(ground));
 			}
 
 			vOrcs.push_back(dll::OrcFactory(static_cast<orcs>(RandIt(0, 4)), orc_sx, orc_sy));
@@ -1495,7 +1594,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					(*count)->Release();
 					vGoodShots.erase(count);
 					break;
-				}
+				}	
 			}
 		}
 
@@ -1602,7 +1701,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 
-		
 		////////////////////////////////////////////////
 
 		// DRAW THINGS *********************************
@@ -1629,44 +1727,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 			Draw->DrawBitmap(bmpField, D2D1::RectF(0, 50.0f, scr_width, scr_height));
 		}
-
-		if (TxtBrush && midFormat)
-		{
-			wchar_t stat_txt[150]{ L"\0" };
-			wchar_t add[5]{ L"\0" };
-
-			int txt_size = 0;
-
-			wcscpy_s(stat_txt, L"крал: ");
-			wcscat_s(stat_txt, current_player);
-
-			wsprintf(add, L"%d", gold);
-			wcscat_s(stat_txt, L", злато: ");
-			wcscat_s(stat_txt, add);
-
-			wsprintf(add, L"%d", score);
-			wcscat_s(stat_txt, L", резултат: ");
-			wcscat_s(stat_txt, add);
-
-			for (int i = 0; i < 150; ++i)
-			{
-				if (stat_txt[i] != '\0')++txt_size;
-				else break;
-			}
-
-			Draw->DrawTextW(stat_txt, txt_size, midFormat, D2D1::RectF(100.0f, ground + 5.0f, scr_width, scr_height), TxtBrush);
-
-			wcscpy_s(stat_txt, L"0");
-
-			wsprintf(add, L"%d", mins);
-			wcscat_s(stat_txt, add);
-			wcscat_s(stat_txt, L" : ");
-			if (secs - mins * 60 < 10) wcscat_s(stat_txt, L"0");
-			wsprintf(add, L"%d", secs - mins * 60);
-			wcscat_s(stat_txt, add);
-			Draw->DrawTextW(stat_txt, 8, midFormat, D2D1::RectF(scr_width - 200.0f, sky + 5.0f, scr_width, scr_height), TxtBrush);
-		}
-
 
 		//////////////////////////////////////////////////
 
@@ -1779,6 +1839,47 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 			}
 		}
 		
+		if (TxtBrush && midFormat)
+		{
+			wchar_t stat_txt[150]{ L"\0" };
+			wchar_t add[5]{ L"\0" };
+
+			int txt_size = 0;
+
+			wcscpy_s(stat_txt, L"крал: ");
+			wcscat_s(stat_txt, current_player);
+
+			wsprintf(add, L"%d", gold);
+			wcscat_s(stat_txt, L", злато: ");
+			wcscat_s(stat_txt, add);
+
+			wsprintf(add, L"%d", score);
+			wcscat_s(stat_txt, L", резултат: ");
+			wcscat_s(stat_txt, add);
+
+			wsprintf(add, L"%d", level);
+			wcscat_s(stat_txt, L", вълна: ");
+			wcscat_s(stat_txt, add);
+
+			for (int i = 0; i < 150; ++i)
+			{
+				if (stat_txt[i] != '\0')++txt_size;
+				else break;
+			}
+
+			Draw->DrawTextW(stat_txt, txt_size, midFormat, D2D1::RectF(100.0f, ground + 5.0f, scr_width, scr_height), TxtBrush);
+
+			wcscpy_s(stat_txt, L"0");
+
+			wsprintf(add, L"%d", mins);
+			wcscat_s(stat_txt, add);
+			wcscat_s(stat_txt, L" : ");
+			if (secs - mins * 60 < 10) wcscat_s(stat_txt, L"0");
+			wsprintf(add, L"%d", secs - mins * 60);
+			wcscat_s(stat_txt, add);
+			Draw->DrawTextW(stat_txt, 8, midFormat, D2D1::RectF(scr_width - 200.0f, sky + 5.0f, scr_width, scr_height), TxtBrush);
+		}
+	
 		if (!vOrcs.empty() && !vBuildings.empty())
 		{
 			for (int i = 0; i < vOrcs.size(); ++i)
@@ -1903,11 +2004,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 				vExplosions[i].delay--;
 				if (vExplosions[i].delay <= 0)
 				{
-					vExplosions[i].delay = 3;
+					vExplosions[i].delay = 5;
 					vExplosions[i].frame++;
 					if (vExplosions[i].frame > 23)
 					{
 						vExplosions.erase(vExplosions.begin() + i);
+						if (game_over)
+						{
+							Draw->EndDraw();
+							GameOver();
+						}
 						break;
 					}
 					else Draw->DrawBitmap(bmpExplosion[vExplosions[i].frame],
