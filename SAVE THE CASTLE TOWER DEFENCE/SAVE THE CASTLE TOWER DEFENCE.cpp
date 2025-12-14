@@ -645,6 +645,195 @@ void ShowHelp()
 
 	if (sound)mciSendString(L"play .\\res\\snd\\help.wav", NULL, NULL, NULL);
 }
+void SaveGame()
+{
+	int result = 0;
+	CheckFile(save_file, &result);
+	if (result == FILE_EXIST)
+	{
+		if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+		if (MessageBox(bHwnd, L"Съществува запис, който ще се изгуби !\n\nНаистина ли го презаписваш ?",
+			L"Презаписване на запис !", MB_YESNO | MB_APPLMODAL | MB_ICONERROR) == IDNO)return;
+	}
+
+	std::wofstream save(save_file);
+
+	save << level << std::endl;
+	save << score << std::endl;
+	save << secs << std::endl;
+	save << game_over << std::endl;
+	save << champion_killed << std::endl;
+	save << gold << std::endl;
+	save << name_set << std::endl;
+	for (int i = 0; i < 16; ++i)save << static_cast<int>(current_player[i]) << std::endl;
+
+	save << vAssets.size() << std::endl;
+	if (!vAssets.empty())
+	{
+		for (int i = 0; i < vAssets.size(); ++i)
+		{
+			save << static_cast<int>(vAssets[i]->get_type()) << std::endl;
+			save << vAssets[i]->start.x << std::endl;
+			save << vAssets[i]->start.y << std::endl;
+		}
+	}
+
+	save << vBuildings.size() << std::endl;
+	if (!vBuildings.empty())
+	{
+		for (int i = 0; i < vBuildings.size(); ++i)
+		{
+			save << static_cast<int>(vBuildings[i]->get_type()) << std::endl;
+			save << vBuildings[i]->start.x << std::endl;
+			save << vBuildings[i]->start.y << std::endl;
+			save << vBuildings[i]->lifes << std::endl;
+		}
+	}
+
+	save << vOrcs.size() << std::endl;
+	if (!vOrcs.empty())
+	{
+		for (int i = 0; i < vOrcs.size(); ++i)
+		{
+			save << static_cast<int>(vOrcs[i]->GetType()) << std::endl;
+			save << vOrcs[i]->start.x << std::endl;
+			save << vOrcs[i]->start.y << std::endl;
+			save << vOrcs[i]->lifes << std::endl;
+		}
+	}
+
+	save.close();
+
+	if (sound)mciSendString(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
+	MessageBox(bHwnd, L"Играта е запазена !", L"Запис !", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+}
+void LoadGame()
+{
+	int result = 0;
+	CheckFile(save_file, &result);
+	if (result == FILE_EXIST)
+	{
+		if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+		if (MessageBox(bHwnd, L"Настоящата игра ще бъде изгубена !\n\nНаистина ли я презаписваш ?",
+			L"Презаписване на запис !", MB_YESNO | MB_APPLMODAL | MB_ICONERROR) == IDNO)return;
+	}
+	else
+	{
+		if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+		MessageBox(bHwnd, L"Все още няма записана игра !\n\nПостарай се повече !",
+			L"Липсва файл !", MB_OK | MB_APPLMODAL | MB_ICONERROR);
+		return;
+	}
+
+	vExplosions.clear();
+
+	if (!vAssets.empty())
+	{
+		for (int i = 0; i < vAssets.size(); ++i)
+		{
+			FreeHeap(&vAssets[i]);
+			vAssets[i] = nullptr;
+		}
+	}
+	vAssets.clear();
+
+	if (!vBuildings.empty())
+	{
+		for (int i = 0; i < vBuildings.size(); ++i)
+		{
+			FreeHeap(&vBuildings[i]);
+			vBuildings[i] = nullptr;
+		}
+	}
+	vBuildings.clear();
+
+	if (!vOrcs.empty())
+	{
+		for (int i = 0; i < vOrcs.size(); ++i)
+		{
+			FreeHeap(&vOrcs[i]);
+			vOrcs[i] = nullptr;
+		}
+	}
+	vOrcs.clear();
+
+	if (!vGoodShots.empty())
+	{
+		for (int i = 0; i < vGoodShots.size(); ++i)FreeHeap(&vGoodShots[i]);
+	}
+	vGoodShots.clear();
+
+	std::wifstream save(save_file);
+
+	save >> level;
+	save >> score;
+	save >> secs;
+	save >> game_over;
+	save >> champion_killed;
+	if (game_over || champion_killed)GameOver();
+
+	save >> gold;
+	save >> name_set;
+	for (int i = 0; i < 16; ++i)
+	{
+		int letter = 0;
+		save >> letter;
+		current_player[i] = static_cast<wchar_t>(letter);
+	}
+
+	save >> result;
+	if (result > 0)
+	{
+		float sx{ 0 };
+		float sy{ 0 };
+		int type{ 0 };
+
+		save >> type;
+		save >> sx;
+		save >> sy;
+
+		vAssets.push_back(dll::AssetFactory(static_cast<assets>(type), sx, sy));
+	}
+
+	save >> result;
+	if (result > 0)
+	{
+		float sx{ 0 };
+		float sy{ 0 };
+		int type{ 0 };
+		int lifes{ 0 };
+
+		save >> type;
+		save >> sx;
+		save >> sy;
+		save >> lifes;
+
+		vBuildings.push_back(dll::BuildingFactory(static_cast<buildings>(type), sx, sy));
+		vBuildings.back()->lifes = lifes;
+	}
+
+	save >> result;
+	if (result > 0)
+	{
+		float sx{ 0 };
+		float sy{ 0 };
+		int type{ 0 };
+		int lifes{ 0 };
+
+		save >> type;
+		save >> sx;
+		save >> sy;
+		save >> lifes;
+
+		vOrcs.push_back(dll::OrcFactory(static_cast<orcs>(type), sx, sy));
+		vOrcs.back()->lifes = lifes;
+	}
+
+	save.close();
+
+	if (sound)mciSendString(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
+	MessageBox(bHwnd, L"Играта е заредена !", L"Зареждане !", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+}
 
 INT_PTR CALLBACK bDlgProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -839,7 +1028,17 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
 			SendMessage(hwnd, WM_CLOSE, NULL, NULL);
 			break;
 
+		case mSave:
+			pause = true;
+			SaveGame();
+			pause = false;
+			break;
 
+		case mLoad:
+			pause = true;
+			LoadGame();
+			pause = false;
+			break;
 
 		case mHoF:
 			pause = true;
@@ -1669,7 +1868,7 @@ void CreateResources()
 			hr = iWriteFactory->CreateTextFormat(L"GNABRI", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
 				DWRITE_FONT_STRETCH_NORMAL, 18.0f, L"", &nrmFormat);
 			hr = iWriteFactory->CreateTextFormat(L"GNABRI", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
-				DWRITE_FONT_STRETCH_NORMAL, 32.0f, L"", &midFormat);
+				DWRITE_FONT_STRETCH_NORMAL, 28.0f, L"", &midFormat);
 			hr = iWriteFactory->CreateTextFormat(L"GNABRI", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
 				DWRITE_FONT_STRETCH_NORMAL, 72.0f, L"", &bigFormat);
 			if (hr != S_OK)
@@ -2042,7 +2241,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					Draw->DrawBitmap(bmpCannonMid[aframe], Resizer(bmpCannonMid[aframe], vBuildings[i]->start.x,
 						vBuildings[i]->start.y));
 					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
-						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes / 2.0f), vBuildings[i]->end.y),
 						HgltBrush, 8.0f);
 					break;
 
@@ -2050,7 +2249,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					Draw->DrawBitmap(bmpCannonBig[aframe], Resizer(bmpCannonBig[aframe], vBuildings[i]->start.x,
 						vBuildings[i]->start.y));
 					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
-						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes / 2.0f), vBuildings[i]->end.y),
 						HgltBrush, 8.0f);
 					break;
 
@@ -2058,7 +2257,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					Draw->DrawBitmap(bmpMageSmall[aframe], Resizer(bmpMageSmall[aframe], vBuildings[i]->start.x,
 						vBuildings[i]->start.y));
 					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
-						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes / 2.0f), vBuildings[i]->end.y),
 						HgltBrush, 8.0f);
 					break;
 
@@ -2066,7 +2265,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					Draw->DrawBitmap(bmpMageMid[aframe], Resizer(bmpMageMid[aframe], vBuildings[i]->start.x,
 						vBuildings[i]->start.y));
 					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
-						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes / 2.5f), vBuildings[i]->end.y),
 						HgltBrush, 8.0f);
 					break;
 
@@ -2074,7 +2273,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 					Draw->DrawBitmap(bmpMageBig[aframe], Resizer(bmpMageBig[aframe], vBuildings[i]->start.x,
 						vBuildings[i]->start.y));
 					Draw->DrawLine(D2D1::Point2F(vBuildings[i]->start.x, vBuildings[i]->end.y),
-						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes), vBuildings[i]->end.y),
+						D2D1::Point2F(vBuildings[i]->start.x + (float)(vBuildings[i]->lifes / 2.5f), vBuildings[i]->end.y),
 						HgltBrush, 8.0f);
 					break;
 				}
