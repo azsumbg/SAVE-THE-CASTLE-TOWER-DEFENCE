@@ -188,7 +188,7 @@ namespace dll
 				else
 				{
 					++max_size;
-					m_ptr = reinterpret_cast<T*>(realloc(m_ptr, sizeof(T) * max_size));
+					if (m_ptr)m_ptr = reinterpret_cast<T*>(realloc(m_ptr, sizeof(T) * max_size));
 					
 					if (!m_ptr)throw EXCEPTION(err_pointer);
 					else
@@ -216,7 +216,7 @@ namespace dll
 				else
 				{
 					++max_size;
-					m_ptr = reinterpret_cast<T*>(realloc(m_ptr, sizeof(T) * max_size));
+					if (m_ptr)m_ptr = reinterpret_cast<T*>(realloc(m_ptr, sizeof(T) * max_size));
 
 					if (!m_ptr)throw EXCEPTION(err_pointer);
 					else
