@@ -82,6 +82,7 @@ int score{ 0 };
 int gold{ 100 };
 
 bool game_over = false;
+bool champion_killed = false;
 
 dll::RANDIT RandIt{};
 
@@ -289,11 +290,103 @@ int IntroFrame()
 
 	return intro_frame;
 }
+BOOL CheckRecord()
+{
+	if (score < 1)return no_record;
 
+	int result = 0;
+
+	CheckFile(record_file, &result);
+	if (result == FILE_NOT_EXIST)
+	{
+		std::wofstream rec(record_file);
+		rec << score << std::endl;
+		for (int i = 0; i < 16; ++i)rec << static_cast<int>(current_player[i]) << std::endl;
+		rec.close();
+		return first_record;
+	}
+	else
+	{
+		std::wifstream check(record_file);
+		check >> result;
+		check.close();
+	}
+
+	if (result < score)
+	{
+		std::wofstream rec(record_file);
+		rec << score << std::endl;
+		for (int i = 0; i < 16; ++i)rec << static_cast<int>(current_player[i]) << std::endl;
+		rec.close();
+		return record;
+	}
+
+	return no_record;
+}
 void GameOver()
 {
 	PlaySound(NULL, NULL, NULL);
 	KillTimer(bHwnd, bTimer);
+
+	if (game_over)
+	{
+		Draw->BeginDraw();
+		Draw->Clear(D2D1::ColorF(D2D1::ColorF::BurlyWood));
+		Draw->DrawBitmap(bmpLoose, D2D1::RectF(0, 0, scr_width, scr_height));
+		Draw->EndDraw();
+		if (sound)
+		{
+			PlaySound(L".\\res\\snd\\defeat.wav", NULL, SND_SYNC);
+			Sleep(1000);
+		}
+		else Sleep(2500);
+	}
+	if (champion_killed)
+	{
+		Draw->BeginDraw();
+		Draw->Clear(D2D1::ColorF(D2D1::ColorF::WhiteSmoke));
+		Draw->DrawBitmap(bmpWin, D2D1::RectF(0, 0, scr_width, scr_height));
+		Draw->EndDraw();
+		if (sound)
+		{
+			PlaySound(L".\\res\\snd\\victory.wav", NULL, SND_SYNC);
+			Sleep(1000);
+		}
+		else Sleep(2500);
+	}
+
+	switch (CheckRecord())
+	{
+	case no_record:
+		Draw->BeginDraw();
+		Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkOliveGreen));
+		if (bigFormat && InactBrush)
+			Draw->DrawTextW(L"ИЗПУСНА РЕКОРДА !", 18, bigFormat, D2D1::RectF(100.0f, 250.0f, scr_width, scr_height), InactBrush);
+		Draw->EndDraw();
+		if (sound)PlaySound(L".\\res\\snd\\defeat.wav", NULL, SND_SYNC);
+		else Sleep(2500);
+		break;
+
+	case first_record:
+		Draw->BeginDraw();
+		Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkOliveGreen));
+		if (bigFormat && InactBrush)
+			Draw->DrawTextW(L"ПЪРВИ РЕКОРД НА ИГРАТА !", 25, bigFormat, D2D1::RectF(50.0f, 250.0f, scr_width, scr_height), InactBrush);
+		Draw->EndDraw();
+		if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_SYNC);
+		else Sleep(2500);
+		break;
+
+	case record:
+		Draw->BeginDraw();
+		Draw->Clear(D2D1::ColorF(D2D1::ColorF::DarkOliveGreen));
+		if (bigFormat && InactBrush)
+			Draw->DrawTextW(L"НОВ СВЕТОВЕН РЕКОРД !", 22, bigFormat, D2D1::RectF(50.0f, 250.0f, scr_width, scr_height), InactBrush);
+		Draw->EndDraw();
+		if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_SYNC);
+		else Sleep(2500);
+		break;
+	}
 
 	bMsg.message = WM_QUIT;
 	bMsg.wParam = 0;
@@ -453,6 +546,8 @@ void LevelUp()
 			if (vBuildings[0]->start.y > scr_height / 2.0f)orc_sy = (float)(RandIt(50, 250));
 			else orc_sy = (float)RandIt(350, (int)(ground));
 		}
+
+		if (sound)mciSendString(L"play .\\res\\snd\\champion.wav", NULL, NULL, NULL);
 
 		vOrcs.push_back(dll::OrcFactory(orcs::champion, orc_sx, orc_sy));
 	}
@@ -663,102 +758,144 @@ LRESULT CALLBACK bWinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPa
 		break;
 
 	case WM_LBUTTONDOWN:
-		if (!vBuildings.empty())
+		if (cur_pos.y * scale_y <= 50)
 		{
-			int x_cur_pos = (int)(cur_pos.x * (int)(scale_x));
-			int y_cur_pos = (int)(cur_pos.y * (int)(scale_y));
-
-			for (std::vector<dll::BUILDINGS*>::iterator build = vBuildings.begin(); build < vBuildings.end(); ++build)
+			if (cur_pos.x * scale_x >= b1Rect.left && cur_pos.x * scale_x <= b1Rect.right)
 			{
-				bool upgraded = false;
-
-				if (x_cur_pos >= (*build)->start.x && x_cur_pos <= (*build)->end.x
-					&& y_cur_pos >= (*build)->start.y && y_cur_pos <= (*build)->end.y)
+				if (name_set)
 				{
-					if ((*build)->get_type() != buildings::castle)
-					{
-						switch ((*build)->get_type())
-						{
-						case buildings::archer:
-							if (gold >= 100)
-							{
-								(*build)->set_type(buildings::small_cannon);
-								(*build)->lifes = 75;
-								upgraded = true;
-								if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
-								break;
-							}
-							else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-							break;
-
-						case buildings::small_cannon:
-							if (gold >= 120)
-							{
-								(*build)->set_type(buildings::mid_cannon);
-								(*build)->lifes = 100;
-								upgraded = true;
-								if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
-								break;
-							}
-							else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-							break;
-
-						case buildings::mid_cannon:
-							if (gold >= 140)
-							{
-								(*build)->set_type(buildings::big_cannon);
-								(*build)->lifes = 250;
-								upgraded = true;
-								if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
-								break;
-							}
-							else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-							break;
-
-						case buildings::big_cannon:
-							if (gold >= 100)
-							{
-								(*build)->set_type(buildings::small_mage);
-								(*build)->lifes = 100;
-								upgraded = true;
-								if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
-								break;
-							}
-							else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-							break;
-
-						case buildings::small_mage:
-							if (gold >= 120)
-							{
-								(*build)->set_type(buildings::mid_mage);
-								(*build)->lifes = 120;
-								if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
-								break;
-							}
-							else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-							break;
-
-						case buildings::mid_mage:
-							if (gold >= 140)
-							{
-								(*build)->set_type(buildings::big_mage);
-								(*build)->lifes = 180;
-								upgraded = true;
-								if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
-								break;
-							}
-							else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-							break;
-
-						default: if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
-						}
-					}
+					if(sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+					break;
 				}
 
-				if (upgraded)break;
+				if (sound)mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+				if (DialogBox(bIns, MAKEINTRESOURCE(IDD_PLAYER), hwnd, &bDlgProc) == IDOK)name_set = true;
+				break;
+			}
+			if (cur_pos.x * scale_x >= b2Rect.left && cur_pos.x * scale_x <= b2Rect.right)
+			{
+				if (sound)mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+
+				if (sound)
+				{
+					PlaySound(NULL, NULL, NULL);
+					sound = false;
+					break;
+				}
+				else
+				{
+					PlaySound(snd_file, NULL, SND_ASYNC | SND_LOOP);
+					sound = true;
+					break;
+				}
+			}
+			if (cur_pos.x * scale_x >= b3Rect.left && cur_pos.x * scale_x <= b3Rect.right)
+			{
+				if (sound)mciSendString(L"play .\\res\\snd\\select.wav", NULL, NULL, NULL);
+
+
+
 			}
 		}
-		else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+		else
+		{
+			if (!vBuildings.empty())
+			{
+				int x_cur_pos = (int)(cur_pos.x * (int)(scale_x));
+				int y_cur_pos = (int)(cur_pos.y * (int)(scale_y));
+
+				for (std::vector<dll::BUILDINGS*>::iterator build = vBuildings.begin(); build < vBuildings.end(); ++build)
+				{
+					bool upgraded = false;
+
+					if (x_cur_pos >= (*build)->start.x && x_cur_pos <= (*build)->end.x
+						&& y_cur_pos >= (*build)->start.y && y_cur_pos <= (*build)->end.y)
+					{
+						if ((*build)->get_type() != buildings::castle)
+						{
+							switch ((*build)->get_type())
+							{
+							case buildings::archer:
+								if (gold >= 100)
+								{
+									(*build)->set_type(buildings::small_cannon);
+									(*build)->lifes = 75;
+									upgraded = true;
+									if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+									break;
+								}
+								else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+								break;
+
+							case buildings::small_cannon:
+								if (gold >= 120)
+								{
+									(*build)->set_type(buildings::mid_cannon);
+									(*build)->lifes = 100;
+									upgraded = true;
+									if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+									break;
+								}
+								else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+								break;
+
+							case buildings::mid_cannon:
+								if (gold >= 140)
+								{
+									(*build)->set_type(buildings::big_cannon);
+									(*build)->lifes = 250;
+									upgraded = true;
+									if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+									break;
+								}
+								else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+								break;
+
+							case buildings::big_cannon:
+								if (gold >= 100)
+								{
+									(*build)->set_type(buildings::small_mage);
+									(*build)->lifes = 100;
+									upgraded = true;
+									if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+									break;
+								}
+								else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+								break;
+
+							case buildings::small_mage:
+								if (gold >= 120)
+								{
+									(*build)->set_type(buildings::mid_mage);
+									(*build)->lifes = 120;
+									if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+									break;
+								}
+								else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+								break;
+
+							case buildings::mid_mage:
+								if (gold >= 140)
+								{
+									(*build)->set_type(buildings::big_mage);
+									(*build)->lifes = 180;
+									upgraded = true;
+									if (sound)mciSendString(L"play .\\res\\snd\\upgrade.wav", NULL, NULL, NULL);
+									break;
+								}
+								else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+								break;
+
+							default: if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+							}
+						}
+					}
+
+					if (upgraded)break;
+				}
+			}
+			else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+		}
 		break;
 
 	case WM_RBUTTONDOWN:
@@ -1492,7 +1629,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
 		/////////////////////////////////////////////////
 
-		if (vOrcs.size() < 10 + level && level < 5 && RandIt(0, 100) == 66)
+		if (vOrcs.size() < 15 + level && level < 5 && RandIt(0, 100) == 66)
 		{
 			float orc_sx{ 0 };
 			float orc_sy{ 0 };
@@ -1617,6 +1754,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 						if ((*orc)->lifes <= 0)
 						{
 							if (sound)mciSendString(L"play .\\res\\snd\\evilkilled.wav", NULL, NULL, NULL);
+							if ((*orc)->GetType() == orcs::champion)champion_killed = true;
 							score += 10 * level;
 							gold += RandIt(10, 20);
 							(*orc)->Release();
